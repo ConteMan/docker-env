@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# IDE
+.vscode
+*.code-workspace
+
+# project
+.env
+
+/data/mysql/data
+
+/log/mysql/**
+/log/nginx/**
+
+## only keep default
+/src/**
+!/src/default
+/src/default/**
+!/src/default/index.html
+
+!.gitkeep
+!.gitignore
