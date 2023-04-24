@@ -32,6 +32,17 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     restart: on-failure
 
+  postgres:
+    image: ${POSTGRES_VERSION}
+    ports:
+      - ${POSTGRES_PORT}:5432
+    volumes:
+      - ./data/postgresql/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    restart: on-failure
+
   mongodb:
     image: "${MONGO_VERSION}"
     ports:
