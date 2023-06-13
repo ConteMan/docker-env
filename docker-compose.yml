@@ -3,6 +3,7 @@ version: '3.4'
 services:
 
   nginx:
+    container_name: nginx
     image: "${NGINX_VERSION}"
     ports:
       - 80:80
@@ -17,6 +18,7 @@ services:
     restart: on-failure
 
   nginx-inner:
+    container_name: nginx-inner
     image: "${NGINX_VERSION}"
     expose:
       - "80"
@@ -31,6 +33,7 @@ services:
     restart: on-failure
 
   mysql:
+    container_name: mysql
     image: "${MYSQL_VERSION}"
     privileged: true
     ports:
@@ -47,6 +50,7 @@ services:
     restart: on-failure
 
   postgres:
+    container_name: postgres
     image: ${POSTGRES_VERSION}
     ports:
       - ${POSTGRES_PORT}:5432
@@ -58,6 +62,7 @@ services:
     restart: on-failure
 
   mongodb:
+    container_name: mongodb
     image: "${MONGO_VERSION}"
     ports:
       - ${MONGO_PORT}:27017
@@ -73,6 +78,7 @@ services:
     restart: on-failure
 
   redis:
+    container_name: redis
     image: "${REDIS_VERSION}"
     ports:
       - ${REDIS_PORT}:6379
@@ -84,3 +90,87 @@ services:
     environment:
       TZ: ${TZ}
     restart: on-failure
+
+  traefik:
+    container_name: traefik
+    image: "${TRAEFIK_VERSION}"
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    networks:
+      - ${NETWORK}
+    command:
+      - "--global.sendanonymoususage=false"
+      - "--global.checknewversion=false"
+      - "--entrypoints.http.address=:80"
+      - "--entrypoints.https.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      #- "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.myresolver.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--api=true"
+      - "--api.insecure=false"
+      - "--api.dashboard=true"
+      - "--api.debug=false"
+      - "--ping=true"
+      - "--log.level=warn"
+      - "--log.format=common"
+      - "--accesslog=false"
+      - "--accesslog.filepath=/data/logs/access.log"
+      - "--accesslog.bufferingsize=100"
+      - "--providers.docker=true"
+      - "--providers.docker.watch=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.swarmMode=false"
+      - "--providers.docker.useBindPortIP=false"
+      - "--providers.docker.network=${NETWORK}"
+      - "--providers.file=true"
+      - "--providers.file.watch=true"
+      - "--providers.file.directory=/etc/traefik/config"
+      - "--providers.file.debugloggeneratedtemplate=true"
+    volumes:
+      # 仅限标准的 Linux 环境
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./etc/traefik/config/:/etc/traefik/config/:ro
+      - ./etc/traefik/ssl/:/data/ssl/:ro
+      - ./etc/traefik/ssl/acme/letsencrypt:/letsencrypt
+      - ./log/traefik/:/data/logs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK}"
+      # 默认请求转发 https 端口
+      - "traefik.http.routers.traefik-dash-default.middlewares=https-redirect@file"
+      - "traefik.http.routers.traefik-dash-default.entrypoints=http"
+      - "traefik.http.routers.traefik-dash-default.rule=Host(`${TRAEFIK_DASHBOARD_URL}`)"
+      - "traefik.http.routers.traefik-dash-default.tls.certResolver=myresolver"
+      - "traefik.http.routers.traefik-dash-default.service=dashboard@internal"
+      # 处理网页
+      - "traefik.http.middlewares.basic-auth.basicauth.users=${TRAEFIK_DASHBOARD_BASIC_AUTH}"
+      - "traefik.http.routers.traefik-dash-web.middlewares=gzip@file"
+      - "traefik.http.routers.traefik-dash-web.middlewares=basic-auth"
+      - "traefik.http.routers.traefik-dash-web.entrypoints=https"
+      - "traefik.http.routers.traefik-dash-web.rule=Host(`${TRAEFIK_DASHBOARD_URL}`) && PathPrefix(`/`)"
+      - "traefik.http.routers.traefik-dash-web.tls=true"
+      - "traefik.http.routers.traefik-dash-web.service=dashboard@internal"
+      # 处理接口
+      - "traefik.http.routers.traefik-dash-api.middlewares=dash-compress@file"
+      - "traefik.http.routers.traefik-dash-api.entrypoints=https"
+      - "traefik.http.routers.traefik-dash-api.rule=Host(`${TRAEFIK_DASHBOARD_URL}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      - "traefik.http.routers.traefik-dash-api.tls=true"
+      - "traefik.http.routers.traefik-dash-api.service=api@internal"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider --proxy off localhost:8080/ping || exit 1"]
+      interval: 3s
+      retries: 12
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+
+networks:
+  "${NETWORK}":
+    external: true
