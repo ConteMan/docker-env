@@ -28,6 +28,9 @@
 /etc/nginx/conf.d/**
 !/etc/nginx/conf.d/default.conf
 /etc/nginx/ssl/**
+/etc/traefik/config/**
+!/etc/traefik/config/default.toml
+/etc/traefik/ssl/acme/**
 
 !.gitkeep
 !.gitignore

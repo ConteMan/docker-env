@@ -157,7 +157,7 @@ services:
       - "traefik.http.routers.traefik-dash-web.tls=true"
       - "traefik.http.routers.traefik-dash-web.service=dashboard@internal"
       # 处理接口
-      - "traefik.http.routers.traefik-dash-api.middlewares=dash-compress@file"
+      - "traefik.http.routers.traefik-dash-api.middlewares=gzip@file"
       - "traefik.http.routers.traefik-dash-api.entrypoints=https"
       - "traefik.http.routers.traefik-dash-api.rule=Host(`${TRAEFIK_DASHBOARD_URL}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
       - "traefik.http.routers.traefik-dash-api.tls=true"
@@ -172,5 +172,5 @@ services:
         max-size: "1m"
 
 networks:
-  "${NETWORK}":
+  traefik: # 修改为 NETWORK 变量值
     external: true
